@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import type { GenericQueryCtx } from "convex/server";
 import { generateEmbedding } from "./lib/embeddings";
 
 // Query to get all todos, ordered by creation date
@@ -22,23 +23,30 @@ export const getById = query({
   },
 });
 
+// Vector search result type
+interface VectorSearchResult {
+  _id: string;
+  _score: number;
+}
+
 // Query to search todos by semantic similarity
 export const search = query({
   args: { query: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { query, limit = 5 }) => {
+  handler: async (ctx: GenericQueryCtx<any>, { query, limit = 5 }) => {
     // Generate embedding for the search query
     const embedding = await generateEmbedding(query);
 
     // Perform vector search
-    const results = await ctx.vectorSearch("todos", "embedding", {
+    const results = await (ctx as any).vectorSearch("todos", "embedding", {
       vector: embedding,
       limit,
-    });
+    }) as VectorSearchResult[];
 
     // Fetch full todo documents
     const todos = await Promise.all(
-      results.map(async (result) => {
-        const todo = await ctx.db.get(result._id);
+      results.map(async (result: VectorSearchResult) => {
+        const todo = await ctx.db.get(result._id as unknown as any);
+        if (!todo) return null;
         return {
           ...todo,
           similarity: 1 - result._score, // Convert distance to similarity
@@ -46,7 +54,7 @@ export const search = query({
       })
     );
 
-    return todos.filter((todo): todo is NonNullable<typeof todo> => todo !== null);
+    return todos.filter((todo: (typeof todos)[number]): todo is NonNullable<typeof todo> => todo !== null);
   },
 });
 

@@ -16,7 +16,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
-import type { Id } from "convex/values";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
 import { TodoList } from "@/components/TodoList";
 import type { Todo, TodoCreate, TodoUpdate } from "@/lib/convex";

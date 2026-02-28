@@ -4,7 +4,7 @@ import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from "@langchain/
 import { z } from "zod";
 import { format, addDays, subDays, differenceInDays, getDay, getWeek, endOfMonth } from "date-fns";
 import type { ActionCtx } from "./_generated/server";
-import { generateEmbedding } from "./lib/embeddings";
+import { api } from "./_generated/api";
 
 // Agent state for tracking iterations and pending suggestions
 interface AgentState {
@@ -13,7 +13,7 @@ interface AgentState {
   pendingSuggestions: Suggestion[];
 }
 
-interface Suggestion {
+export interface Suggestion {
   id: string;
   title: string;
   description: string;
@@ -52,7 +52,7 @@ function createTools(ctx: ActionCtx, state: AgentState) {
   // Get todos tool
   const getTodosTool = tool(
     async () => {
-      const todos = await ctx.runQuery("todos:getAll", {});
+      const todos = await ctx.runQuery(api.todos.getAll, {});
       if (!todos || todos.length === 0) {
         return "No todos found.";
       }
@@ -77,7 +77,7 @@ function createTools(ctx: ActionCtx, state: AgentState) {
   // Search todos tool
   const searchTodosTool = tool(
     async ({ query }: { query: string }) => {
-      const todos = await ctx.runQuery("todos:search", { query, limit: 5 });
+      const todos = await ctx.runQuery(api.todos.search, { query, limit: 5 });
       if (!todos || todos.length === 0) {
         return `No todos found matching '${query}'.`;
       }
@@ -230,13 +230,14 @@ async function executeTool(
   args: Record<string, unknown>,
   tools: ReturnType<typeof createTools>
 ): Promise<string> {
-  const tool = tools.find((t) => t.name === toolName);
-  if (!tool) {
+  const toolInstance = tools.find((t) => t.name === toolName);
+  if (!toolInstance) {
     return `Tool ${toolName} not found`;
   }
 
   try {
-    const result = await tool.invoke(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await (toolInstance as any).invoke(args);
     return String(result);
   } catch (error) {
     return `Error executing tool ${toolName}: ${error}`;
@@ -360,7 +361,7 @@ export async function acceptSuggestion(
   ctx: ActionCtx,
   suggestion: Suggestion
 ): Promise<string> {
-  const todoId = await ctx.runMutation("todos:create", {
+  const todoId = await ctx.runMutation(api.todos.create, {
     title: suggestion.title,
     description: suggestion.description,
     completed: false,

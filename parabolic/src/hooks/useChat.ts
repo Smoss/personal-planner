@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { useAction } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import type { ChatMessage, Suggestion } from "@/lib/convex";
 
 interface UseChatReturn {
@@ -30,8 +28,6 @@ export function useChat(): UseChatReturn {
   const [currentSuggestions, setCurrentSuggestions] = useState<Suggestion[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const streamChat = useAction(api.chat.streamChat);
-
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim()) return;
@@ -52,11 +48,17 @@ export function useChat(): UseChatReturn {
       abortControllerRef.current = abortController;
 
       try {
-        // Call Convex streaming action
-        const response = await streamChat({ messages: newMessages });
+        // Call Convex HTTP action directly
+        const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.replace(/\/+$/, "") || "";
+        const response = await fetch(`${convexUrl}/http/chat/streamChat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: newMessages }),
+          signal: abortController.signal,
+        });
 
-        if (!(response instanceof Response)) {
-          throw new Error("Expected Response from streamChat");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const reader = response.body?.getReader();
@@ -127,7 +129,7 @@ export function useChat(): UseChatReturn {
         abortControllerRef.current = null;
       }
     },
-    [messages, streamChat]
+    [messages]
   );
 
   const clearChat = useCallback(() => {

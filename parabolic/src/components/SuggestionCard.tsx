@@ -5,7 +5,7 @@ import { Card, CardContent, CardActions, Button, Typography, Box, Chip, Snackbar
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import LightbulbIcon from "@mui/icons-material/Lightbulb";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Suggestion } from "@/lib/convex";
 
@@ -20,7 +20,7 @@ export function SuggestionCard({ suggestion, onAccepted, onRejected }: Suggestio
   const [status, setStatus] = useState<"pending" | "accepted" | "rejected">("pending");
   const [error, setError] = useState<string | null>(null);
 
-  const acceptSuggestionMutation = useMutation(api.chat.acceptSuggestionAction);
+  const acceptSuggestionMutation = useAction(api.chat.acceptSuggestionAction);
 
   const handleAccept = async () => {
     setLoading(true);
