@@ -310,21 +310,58 @@ Guidelines:
 
     yield { type: "thinking", content: `Iteration ${state.iterationCount}: Processing...` };
 
-    // Get response from LLM
-    const response = await llmWithTools.invoke(lcMessages);
-    console.log("[runAgentStream] LLM response:", {
-      hasToolCalls: !!response.tool_calls?.length,
-      contentPreview: String(response.content).substring(0, 100),
+    // Stream from LLM
+    const stream = await llmWithTools.stream(lcMessages);
+    let fullContent = "";
+    let pendingToolCalls: Array<{
+      id: string;
+      name: string;
+      args: Record<string, unknown>;
+    }> = [];
+
+    for await (const chunk of stream) {
+      // Accumulate content
+      const content = chunk.content as string;
+      if (content) {
+        fullContent += content;
+        // Stream content chunks as they arrive
+        yield { type: "response", content: fullContent };
+      }
+
+      // Check for tool calls in the chunk
+      if (chunk.tool_calls && chunk.tool_calls.length > 0) {
+        for (const tc of chunk.tool_calls) {
+          const existing = pendingToolCalls.find((p) => p.id === tc.id);
+          if (!existing && tc.id && tc.name) {
+            pendingToolCalls.push({
+              id: tc.id,
+              name: tc.name,
+              args: tc.args as Record<string, unknown>,
+            });
+          }
+        }
+      }
+    }
+
+    console.log("[runAgentStream] Stream complete, content length:", fullContent.length);
+
+    // Create the final AI message for the conversation history
+    const finalMessage = new AIMessage({
+      content: fullContent,
+      tool_calls: pendingToolCalls.map((tc) => ({
+        id: tc.id,
+        name: tc.name,
+        args: tc.args,
+      })),
     });
 
     // Check for tool calls
-    if (response.tool_calls && response.tool_calls.length > 0) {
-      lcMessages.push(response);
+    if (pendingToolCalls.length > 0) {
+      lcMessages.push(finalMessage);
 
-      for (const toolCall of response.tool_calls) {
+      for (const toolCall of pendingToolCalls) {
         const toolName = toolCall.name;
-        const toolArgs = toolCall.args as Record<string, unknown>;
-        const toolId = toolCall.id || `call_${Date.now()}`;
+        const toolArgs = toolCall.args;
         console.log("[runAgentStream] Executing tool:", toolName, "args:", toolArgs);
 
         yield {
@@ -340,25 +377,22 @@ Guidelines:
         yield {
           type: "tool_result",
           tool: toolName,
-          result: toolResult.substring(0, 200), // Truncate for display
+          result: toolResult.substring(0, 200),
         };
 
         // Add tool result to messages
         lcMessages.push(
           new ToolMessage({
             content: toolResult,
-            tool_call_id: toolId,
+            tool_call_id: toolCall.id,
           })
         );
       }
     } else {
       // No tool calls, we have the final response
-      const finalResponse = response.content as string;
       console.log("[runAgentStream] Final response, pending suggestions:", state.pendingSuggestions.length);
 
-      yield { type: "response", content: finalResponse };
-
-      // Yield any pending suggestions
+      // Yield final suggestions
       for (const suggestion of state.pendingSuggestions) {
         yield { type: "suggestion", data: suggestion };
       }
