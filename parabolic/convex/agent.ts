@@ -52,7 +52,9 @@ function createTools(ctx: ActionCtx, state: AgentState) {
   // Get todos tool
   const getTodosTool = tool(
     async () => {
+      console.log("[Tool:get_todos] Fetching todos...");
       const todos = await ctx.runQuery(api.todos.getAll, {});
+      console.log("[Tool:get_todos] Found", todos?.length || 0, "todos");
       if (!todos || todos.length === 0) {
         return "No todos found.";
       }
@@ -77,6 +79,7 @@ function createTools(ctx: ActionCtx, state: AgentState) {
   // Search todos tool
   const searchTodosTool = tool(
     async ({ query }: { query: string }) => {
+      console.log("[Tool:search_todos] Query:", query);
       const todos = await ctx.runQuery(api.todos.search, { query, limit: 5 });
       if (!todos || todos.length === 0) {
         return `No todos found matching '${query}'.`;
@@ -112,6 +115,7 @@ function createTools(ctx: ActionCtx, state: AgentState) {
       date?: string;
       days?: number;
     }) => {
+      console.log("[Tool:day_math] Operation:", operation, "date:", date, "days:", days);
       const today = new Date();
 
       switch (operation) {
@@ -178,6 +182,7 @@ function createTools(ctx: ActionCtx, state: AgentState) {
       description: string;
       reasoning: string;
     }) => {
+      console.log("[Tool:suggest_todo] Creating suggestion:", title);
       const suggestion: Suggestion = {
         id: `sugg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         title,
@@ -254,6 +259,12 @@ export async function* runAgentStream({
   messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
   ctx: ActionCtx;
 }): AsyncGenerator<StreamEvent, void, unknown> {
+  console.log("[runAgentStream] Starting with", messages.length, "messages");
+  console.log("[runAgentStream] LLM config:", {
+    model: "lfm2.5-thinking:latest",
+    baseUrl: process.env.OLLAMA_BASE_URL,
+  });
+
   // Initialize agent state
   const state: AgentState = {
     iterationCount: 0,
@@ -264,7 +275,7 @@ export async function* runAgentStream({
   // Create LLM instance
   const llm = new ChatOllama({
     model: "lfm2.5-thinking:latest",
-    baseUrl: process.env.OLLAMA_BASE_URL || "http://host.docker.internal:11434",
+    baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
     temperature: 0.7,
     streaming: true,
   });
@@ -295,11 +306,16 @@ Guidelines:
   // Main agent loop
   while (state.iterationCount < state.maxIterations) {
     state.iterationCount++;
+    console.log(`[runAgentStream] --- Iteration ${state.iterationCount}/${state.maxIterations} ---`);
 
     yield { type: "thinking", content: `Iteration ${state.iterationCount}: Processing...` };
 
     // Get response from LLM
     const response = await llmWithTools.invoke(lcMessages);
+    console.log("[runAgentStream] LLM response:", {
+      hasToolCalls: !!response.tool_calls?.length,
+      contentPreview: String(response.content).substring(0, 100),
+    });
 
     // Check for tool calls
     if (response.tool_calls && response.tool_calls.length > 0) {
@@ -309,6 +325,7 @@ Guidelines:
         const toolName = toolCall.name;
         const toolArgs = toolCall.args as Record<string, unknown>;
         const toolId = toolCall.id || `call_${Date.now()}`;
+        console.log("[runAgentStream] Executing tool:", toolName, "args:", toolArgs);
 
         yield {
           type: "tool_call",
@@ -318,6 +335,7 @@ Guidelines:
 
         // Execute the tool
         const toolResult = await executeTool(toolName, toolArgs, tools);
+        console.log("[runAgentStream] Tool result:", toolResult.substring(0, 150));
 
         yield {
           type: "tool_result",
@@ -336,6 +354,7 @@ Guidelines:
     } else {
       // No tool calls, we have the final response
       const finalResponse = response.content as string;
+      console.log("[runAgentStream] Final response, pending suggestions:", state.pendingSuggestions.length);
 
       yield { type: "response", content: finalResponse };
 

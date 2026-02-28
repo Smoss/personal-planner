@@ -50,12 +50,14 @@ export function useChat(): UseChatReturn {
       try {
         // Call Convex HTTP action directly
         const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.replace(/\/+$/, "") || "";
+        console.log("[useChat] Sending message to", `${convexUrl}/http/chat/streamChat`);
         const response = await fetch(`${convexUrl}/http/chat/streamChat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: newMessages }),
           signal: abortController.signal,
         });
+        console.log("[useChat] Response status:", response.status);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -73,9 +75,13 @@ export function useChat(): UseChatReturn {
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            console.log("[useChat] Stream complete, full response length:", fullResponse.length);
+            break;
+          }
 
           buffer += decoder.decode(value, { stream: true });
+          console.log("[useChat] Raw SSE chunk:", buffer);
 
           // Process SSE events
           const lines = buffer.split("\n");
@@ -90,6 +96,7 @@ export function useChat(): UseChatReturn {
 
               if (dataLine?.startsWith("data: ")) {
                 const data = dataLine.slice(6);
+                console.log("[useChat] Parsed event:", eventType, "data:", data.substring(0, 100));
 
                 try {
                   const event: StreamEvent = JSON.parse(data);

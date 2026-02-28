@@ -8,6 +8,8 @@ import type { Suggestion } from "./agent";
  * This uses Convex's HTTP action support to stream responses to the client
  */
 export const streamChat = httpAction(async (ctx, request) => {
+  console.log(`[streamChat] ${request.method} request received`);
+
   // Handle CORS preflight request
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -22,19 +24,24 @@ export const streamChat = httpAction(async (ctx, request) => {
 
   const body = await request.json();
   const messages = body.messages;
+  console.log("[streamChat] Messages received:", messages.length);
+  console.log("[streamChat] Last message:", messages[messages.length - 1]?.content?.substring(0, 100));
   // Create a stream for the response
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
+      console.log("[streamChat] Starting agent stream...");
       try {
         // Run the agent and stream results
         for await (const event of runAgentStream({ messages, ctx })) {
+          console.log("[streamChat] Streaming event:", event.type);
           const data = JSON.stringify(event);
           controller.enqueue(encoder.encode(`event: ${event.type}\n`));
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         }
       } catch (error) {
+        console.error("[streamChat] Stream error:", error);
         const errorEvent: StreamEvent = {
           type: "response",
           content: error instanceof Error ? error.message : "Unknown error occurred",
@@ -43,6 +50,7 @@ export const streamChat = httpAction(async (ctx, request) => {
         controller.enqueue(encoder.encode(`event: error\n`));
         controller.enqueue(encoder.encode(`data: ${data}\n\n`));
       } finally {
+        console.log("[streamChat] Stream closed");
         controller.close();
       }
     },
