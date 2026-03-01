@@ -64,8 +64,9 @@ export const create = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     completed: v.optional(v.boolean()),
+    doBy: v.optional(v.string()),
   },
-  handler: async (ctx, { title, description, completed = false }) => {
+  handler: async (ctx, { title, description, completed = false, doBy }) => {
     const now = Date.now();
 
     // Generate embedding for the todo (combine title and description)
@@ -81,6 +82,7 @@ export const create = mutation({
       embedding,
       createdAt: now,
       updatedAt: now,
+      doBy,
     });
 
     return todoId;
@@ -94,8 +96,9 @@ export const update = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     completed: v.optional(v.boolean()),
+    doBy: v.optional(v.string()),
   },
-  handler: async (ctx, { id, title, description, completed }) => {
+  handler: async (ctx, { id, title, description, completed, doBy }) => {
     const existing = await ctx.db.get(id);
     if (!existing) {
       throw new Error(`Todo with id ${id} not found`);
@@ -108,6 +111,7 @@ export const update = mutation({
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
     if (completed !== undefined) updates.completed = completed;
+    if (doBy !== undefined) updates.doBy = doBy;
 
     // Regenerate embedding if title or description changed
     if (title !== undefined || description !== undefined) {

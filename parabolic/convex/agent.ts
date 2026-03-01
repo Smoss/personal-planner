@@ -18,6 +18,7 @@ export interface Suggestion {
   title: string;
   description: string;
   reasoning: string;
+  doBy?: string;  // ISO date string (YYYY-MM-DD) for when task should be completed
 }
 
 // Stream event types
@@ -177,10 +178,12 @@ function createTools(ctx: ActionCtx, state: AgentState) {
       title,
       description,
       reasoning,
+      doBy,
     }: {
       title: string;
       description: string;
       reasoning: string;
+      doBy?: string;
     }) => {
       console.log("[Tool:suggest_todo] Creating suggestion:", title);
       const suggestion: Suggestion = {
@@ -188,9 +191,10 @@ function createTools(ctx: ActionCtx, state: AgentState) {
         title,
         description,
         reasoning,
+        doBy,
       };
       state.pendingSuggestions.push(suggestion);
-      return `Suggestion created: '${title}'. User can accept or reject this suggestion.`;
+      return `Suggestion created: '${title}'${doBy ? ` (do by: ${doBy})` : ""}. User can accept or reject this suggestion.`;
     },
     {
       name: "suggest_todo",
@@ -199,6 +203,7 @@ function createTools(ctx: ActionCtx, state: AgentState) {
         title: z.string().describe("The title of the suggested todo"),
         description: z.string().describe("A detailed description of the suggested todo"),
         reasoning: z.string().describe("Explanation of why this todo is being suggested"),
+        doBy: z.string().optional().describe("The 'do by' date for this task in ISO format (YYYY-MM-DD). Include this for time-sensitive tasks, deadlines, or scheduled activities."),
       }),
     }
   );
@@ -296,6 +301,7 @@ Guidelines:
 - You can search todos semantically using search_todos for finding related tasks
 - You can calculate dates using day_math for scheduling
 - When suggesting new todos, use suggest_todo - the user must explicitly accept before it gets added
+- **IMPORTANT**: When suggesting todos, include a "do by" date (in YYYY-MM-DD format) for time-sensitive tasks, deadlines, or scheduled activities
 - Be concise but helpful in your responses
 - If the user asks about their day or plans, first check their current todos
 - After 15 iterations, you will gracefully wrap up the conversation`;
@@ -418,6 +424,7 @@ export async function acceptSuggestion(
     title: suggestion.title,
     description: suggestion.description,
     completed: false,
+    doBy: suggestion.doBy,
   });
   return todoId;
 }

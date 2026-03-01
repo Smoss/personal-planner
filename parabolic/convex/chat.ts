@@ -79,6 +79,7 @@ export const acceptSuggestionAction = action({
       title: v.string(),
       description: v.string(),
       reasoning: v.string(),
+      doBy: v.optional(v.string()),
     }),
   },
   handler: async (ctx, { suggestion }) => {

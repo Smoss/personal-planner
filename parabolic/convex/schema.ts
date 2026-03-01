@@ -9,6 +9,7 @@ export default defineSchema({
     embedding: v.optional(v.array(v.float64())),  // 768-dim vector for nomic-embed-text-v2-moe
     createdAt: v.number(),  // Unix timestamp in milliseconds
     updatedAt: v.number(),
+    doBy: v.optional(v.string()),  // ISO date string (YYYY-MM-DD) for when task should be completed
   })
     .vectorIndex("embedding", {
       vectorField: "embedding",

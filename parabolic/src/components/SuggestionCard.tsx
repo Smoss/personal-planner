@@ -5,9 +5,11 @@ import { Card, CardContent, CardActions, Button, Typography, Box, Chip, Snackbar
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import LightbulbIcon from "@mui/icons-material/Lightbulb";
+import CalendarIcon from "@mui/icons-material/CalendarToday";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Suggestion } from "@/lib/convex";
+import { format, parseISO } from "date-fns";
 
 interface SuggestionCardProps {
   suggestion: Suggestion;
@@ -84,6 +86,14 @@ export function SuggestionCard({ suggestion, onAccepted, onRejected }: Suggestio
             <Typography variant="body2" color="text.secondary" gutterBottom>
               {suggestion.description}
             </Typography>
+          )}
+          {suggestion.doBy && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+              <CalendarIcon fontSize="small" color="action" />
+              <Typography variant="body2" color="primary">
+                Do by: {format(parseISO(suggestion.doBy), "MMM d, yyyy")}
+              </Typography>
+            </Box>
           )}
           <Typography variant="caption" color="text.secondary">
             {suggestion.reasoning}

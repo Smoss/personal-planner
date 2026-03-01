@@ -25,10 +25,12 @@ export interface TodoCreate {
   title: string;
   description?: string;
   completed?: boolean;
+  doBy?: string;  // ISO date string (YYYY-MM-DD)
 }
 
 export interface TodoUpdate {
   title?: string;
   description?: string;
   completed?: boolean;
+  doBy?: string;  // ISO date string (YYYY-MM-DD)
 }
