@@ -93,6 +93,24 @@ export function ChatMessage({ message, isStreaming = false, streamingThoughts }:
               }}
             >
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+              {isStreaming && (
+                <Box
+                  component="span"
+                  sx={{
+                    display: "inline-block",
+                    width: "2px",
+                    height: "1em",
+                    backgroundColor: "currentColor",
+                    ml: 0.3,
+                    verticalAlign: "middle",
+                    animation: "blink 1s step-end infinite",
+                    "@keyframes blink": {
+                      "0%, 50%": { opacity: 1 },
+                      "51%, 100%": { opacity: 0 },
+                    },
+                  }}
+                />
+              )}
             </Typography>
           </Paper>
 

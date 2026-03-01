@@ -10,10 +10,13 @@ import {
   IconButton,
   Fab,
   Zoom,
+  Avatar,
+  Skeleton,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
 import { useChat } from "@/hooks/useChat";
 import { ChatMessage } from "./ChatMessage";
 import { SuggestionCard } from "./SuggestionCard";
@@ -43,7 +46,7 @@ export function Chat() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingContent]);
+  }, [messages, streamingContent, isStreaming]);
 
   // Show/hide scroll button based on scroll position
   const handleScroll = () => {
@@ -142,6 +145,79 @@ export function Chat() {
                       suggestion={suggestion}
                     />
                   ))}
+                </Box>
+              )}
+
+              {/* Thinking indicator - shown when streaming but no content yet */}
+              {isStreaming && !streamingContent && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                    mb: 2,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "flex-start",
+                      maxWidth: "80%",
+                      gap: 1,
+                    }}
+                  >
+                    <Avatar
+                      sx={{
+                        bgcolor: "secondary.main",
+                        width: 32,
+                        height: 32,
+                      }}
+                    >
+                      <SmartToyIcon fontSize="small" />
+                    </Avatar>
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        p: 2,
+                        backgroundColor: "background.paper",
+                        borderRadius: 2,
+                        minWidth: 120,
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Thinking
+                        </Typography>
+                        <Box
+                          component="span"
+                          sx={{
+                            display: "inline-flex",
+                            gap: 0.3,
+                            ml: 0.5,
+                          }}
+                        >
+                          {[0, 1, 2].map((i) => (
+                            <Box
+                              key={i}
+                              component="span"
+                              sx={{
+                                width: 4,
+                                height: 4,
+                                borderRadius: "50%",
+                                backgroundColor: "text.secondary",
+                                animation: "pulse 1.4s ease-in-out infinite",
+                                animationDelay: `${i * 0.2}s`,
+                                "@keyframes pulse": {
+                                  "0%, 60%, 100%": { opacity: 0.3, transform: "scale(0.8)" },
+                                  "30%": { opacity: 1, transform: "scale(1)" },
+                                },
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    </Paper>
+                  </Box>
                 </Box>
               )}
 

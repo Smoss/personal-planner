@@ -194,11 +194,21 @@ function createTools(ctx: ActionCtx, state: AgentState) {
         doBy,
       };
       state.pendingSuggestions.push(suggestion);
-      return `Suggestion created: '${title}'${doBy ? ` (do by: ${doBy})` : ""}. User can accept or reject this suggestion.`;
+
+      // Build context about suggestions made so the agent can self-regulate
+      const suggestionNumber = state.pendingSuggestions.length;
+      const suggestionsList = state.pendingSuggestions.map((s, i) => `${i + 1}. ${s.title}`).join("\n");
+
+      return `Suggestion ${suggestionNumber} created: '${title}'${doBy ? ` (do by: ${doBy})` : ""}.
+
+Suggestions made in this conversation:
+${suggestionsList}
+
+User can accept or reject each suggestion. Before making another suggestion, ask yourself: "Have I already provided 1-2 good suggestions that address the user's need?" If yes, wrap up instead of calling more tools.`;
     },
     {
       name: "suggest_todo",
-      description: "Suggest a new todo to the user. Creates a pending suggestion that the user can accept or reject. Does NOT add to database directly.",
+      description: "Suggest a new todo to the user. Creates a pending suggestion that the user can accept or reject. Does NOT add to database directly. After 1-2 suggestions, assess if you've sufficiently helped the user - if so, wrap up without calling more tools.",
       schema: z.object({
         title: z.string().describe("The title of the suggested todo"),
         description: z.string().describe("A detailed description of the suggested todo"),
@@ -304,6 +314,7 @@ Guidelines:
 - **IMPORTANT**: When suggesting todos, include a "do by" date (in YYYY-MM-DD format) for time-sensitive tasks, deadlines, or scheduled activities
 - Be concise but helpful in your responses
 - If the user asks about their day or plans, first check their current todos
+- **SELF-REGULATION**: After making 1-2 suggestions, assess if you've sufficiently helped the user. If the suggestions address their need, wrap up WITHOUT calling more tools. The tool result will tell you how many suggestions you've made so far.
 - After 15 iterations, you will gracefully wrap up the conversation`;
 
   // Convert messages to LangChain format
@@ -325,13 +336,21 @@ Guidelines:
       args: Record<string, unknown>;
     }> = [];
 
+    // Track if we've yielded initial thinking state
+    let hasYieldedThinking = false;
+
     for await (const chunk of stream) {
       // Accumulate content
       const content = chunk.content as string;
       if (content) {
         fullContent += content;
-        // Stream content chunks as they arrive
-        yield { type: "response", content: fullContent };
+        // Stream each content chunk as it arrives for real-time display
+        // Yield incremental content so UI can append it progressively
+        yield { type: "response", content: content };
+      } else if (!hasYieldedThinking) {
+        // First chunk with no content indicates thinking/processing
+        yield { type: "thinking", content: "Thinking..." };
+        hasYieldedThinking = true;
       }
 
       // Check for tool calls in the chunk

@@ -112,7 +112,8 @@ export function useChat(): UseChatReturn {
                 const event: StreamEvent = JSON.parse(data);
 
                 if (pendingEventType === "response" && event.content) {
-                  fullResponse = event.content;
+                  // Append incremental content (chunks) rather than replacing
+                  fullResponse += event.content;
                   setStreamingContent(fullResponse);
                 } else if (pendingEventType === "suggestion" && event.data) {
                   suggestions.push(event.data);
