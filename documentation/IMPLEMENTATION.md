@@ -802,14 +802,14 @@ make test
 
 ### Ollama Integration
 
-For Docker to reach the host Ollama instance:
+For local development, Ollama runs on `localhost:11434`:
 
-```yaml
-extra_hosts:
-  - "host.docker.internal:host-gateway"
+```bash
+# Start Ollama server
+ollama serve
 ```
 
-The backend uses `OLLAMA_BASE_URL=http://host.docker.internal:11434` in Docker.
+The backend uses `OLLAMA_BASE_URL=http://localhost:11434` by default.
 
 ---
 

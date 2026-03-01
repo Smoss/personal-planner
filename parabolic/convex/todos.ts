@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { GenericQueryCtx } from "convex/server";
-import { generateEmbedding } from "./lib/embeddings";
 
 // Query to get all todos, ordered by creation date
 export const getAll = query({
@@ -54,13 +53,11 @@ interface VectorSearchResult {
 }
 
 // Query to search todos by semantic similarity
+// Note: The embedding must be pre-computed using the generateEmbeddingAction
 export const search = query({
-  args: { query: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx: GenericQueryCtx<any>, { query, limit = 5 }) => {
-    // Generate embedding for the search query
-    const embedding = await generateEmbedding(query);
-
-    // Perform vector search
+  args: { embedding: v.array(v.number()), limit: v.optional(v.number()) },
+  handler: async (ctx: GenericQueryCtx<any>, { embedding, limit = 5 }) => {
+    // Perform vector search using the pre-computed embedding
     const results = await (ctx as any).vectorSearch("todos", "embedding", {
       vector: embedding,
       limit,
@@ -83,27 +80,27 @@ export const search = query({
 });
 
 // Mutation to create a new todo
+// Note: The embedding should be pre-computed using the generateEmbeddingAction
 export const create = mutation({
   args: {
     title: v.string(),
     description: v.optional(v.string()),
     completed: v.optional(v.boolean()),
     doBy: v.optional(v.string()),
+    embedding: v.optional(v.array(v.number())),
   },
-  handler: async (ctx, { title, description, completed = false, doBy }) => {
+  handler: async (ctx, { title, description, completed = false, doBy, embedding }) => {
     const now = Date.now();
 
-    // Generate embedding for the todo (combine title and description)
-    const textForEmbedding = description
-      ? `${title} ${description}`
-      : title;
-    const embedding = await generateEmbedding(textForEmbedding);
+    // Use provided embedding or default to zero vector
+    // (Callers should pre-compute embedding using generateEmbeddingAction)
+    const finalEmbedding = embedding ?? new Array(768).fill(0);
 
     const todoId = await ctx.db.insert("todos", {
       title,
       description,
       completed,
-      embedding,
+      embedding: finalEmbedding,
       createdAt: now,
       updatedAt: now,
       doBy,
@@ -114,6 +111,7 @@ export const create = mutation({
 });
 
 // Mutation to update a todo
+// Note: If title/description changes, provide a new embedding via generateEmbeddingAction
 export const update = mutation({
   args: {
     id: v.id("todos"),
@@ -121,8 +119,9 @@ export const update = mutation({
     description: v.optional(v.string()),
     completed: v.optional(v.boolean()),
     doBy: v.optional(v.string()),
+    embedding: v.optional(v.array(v.number())),
   },
-  handler: async (ctx, { id, title, description, completed, doBy }) => {
+  handler: async (ctx, { id, title, description, completed, doBy, embedding }) => {
     const existing = await ctx.db.get(id);
     if (!existing) {
       throw new Error(`Todo with id ${id} not found`);
@@ -137,14 +136,10 @@ export const update = mutation({
     if (completed !== undefined) updates.completed = completed;
     if (doBy !== undefined) updates.doBy = doBy;
 
-    // Regenerate embedding if title or description changed
-    if (title !== undefined || description !== undefined) {
-      const newTitle = title ?? existing.title;
-      const newDescription = description ?? existing.description;
-      const textForEmbedding = newDescription
-        ? `${newTitle} ${newDescription}`
-        : newTitle;
-      updates.embedding = await generateEmbedding(textForEmbedding);
+    // Use provided embedding if title or description changed
+    // (Callers should pre-compute embedding using generateEmbeddingAction)
+    if (embedding !== undefined) {
+      updates.embedding = embedding;
     }
 
     await ctx.db.patch(id, updates);

@@ -81,7 +81,10 @@ function createTools(ctx: ActionCtx, state: AgentState) {
   const searchTodosTool = tool(
     async ({ query }: { query: string }) => {
       console.log("[Tool:search_todos] Query:", query);
-      const todos = await ctx.runQuery(api.todos.search, { query, limit: 5 });
+      // First, generate embedding using action (actions can use fetch())
+      const embedding = await ctx.runAction(api.embeddings.generateEmbeddingAction, { text: query });
+      // Then perform vector search with the embedding
+      const todos = await ctx.runQuery(api.todos.search, { embedding, limit: 5 });
       if (!todos || todos.length === 0) {
         return `No todos found matching '${query}'.`;
       }
@@ -395,9 +398,18 @@ Guidelines:
           args: toolArgs,
         };
 
+        // Track suggestion count BEFORE tool execution
+        const suggestionsBefore = state.pendingSuggestions.length;
+
         // Execute the tool
         const toolResult = await executeTool(toolName, toolArgs, tools);
         console.log("[runAgentStream] Tool result:", toolResult.substring(0, 150));
+
+        // Check for NEW suggestions created by this tool and yield them immediately
+        const newSuggestions = state.pendingSuggestions.slice(suggestionsBefore);
+        for (const suggestion of newSuggestions) {
+          yield { type: "suggestion", data: suggestion };
+        }
 
         yield {
           type: "tool_result",
@@ -439,11 +451,19 @@ export async function acceptSuggestion(
   ctx: ActionCtx,
   suggestion: Suggestion
 ): Promise<string> {
+  // Generate embedding for the todo using action (actions can use fetch())
+  const textForEmbedding = suggestion.description
+    ? `${suggestion.title} ${suggestion.description}`
+    : suggestion.title;
+  const embedding = await ctx.runAction(api.embeddings.generateEmbeddingAction, { text: textForEmbedding });
+
+  // Create the todo with the pre-computed embedding
   const todoId = await ctx.runMutation(api.todos.create, {
     title: suggestion.title,
     description: suggestion.description,
     completed: false,
     doBy: suggestion.doBy,
+    embedding,
   });
   return todoId;
 }

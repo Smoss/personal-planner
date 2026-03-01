@@ -77,10 +77,10 @@ Create `.env.local`:
 
 ```env
 NEXT_PUBLIC_CONVEX_URL=your_convex_deployment_url
-OLLAMA_BASE_URL=http://host.docker.internal:11434
+OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-For local development with Ollama on macOS/Windows, use `host.docker.internal`. For Linux, you may need to use `localhost` or set up a tunnel.
+For local development with Ollama, ensure it's running with `ollama serve`.
 
 ### 4. Start Development Server
 

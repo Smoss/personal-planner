@@ -1,6 +1,6 @@
 // Ollama client configuration and utilities
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://host.docker.internal:11434";
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 
 export interface OllamaMessage {
   role: "user" | "assistant" | "system";

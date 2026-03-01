@@ -203,8 +203,7 @@ The agent uses the `day_math` tool for date calculations:
 If the backend can't connect to Ollama:
 
 1. Ensure Ollama is running: `ollama serve`
-2. For Docker, use `host.docker.internal:11434` in the backend config
-3. On Linux, you may need to add `--add-host=host.docker.internal:host-gateway` to Docker commands
+2. Verify the `OLLAMA_BASE_URL` is set to `http://localhost:11434`
 
 ### Database Issues
 
