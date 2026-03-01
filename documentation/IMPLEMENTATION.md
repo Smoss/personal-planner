@@ -62,7 +62,7 @@ The AI Day Planner is a full-stack application that combines a conversational AI
 | Vector DB | PGVector (Postgres extension) | Semantic similarity search |
 | Migrations | Alembic | Database schema versioning |
 | AI Framework | LangChain | Agent orchestration |
-| LLM | Ollama (lfm2.5-thinking) | Local LLM inference |
+| LLM | Ollama (qwen3:latest) | Local LLM inference |
 | Embeddings | Ollama (nomic-embed-text-v2-moe) | Text vectorization |
 | Package Mgmt | uv | Fast Python package management |
 | Linting | ruff | Fast Python linter + formatter |
@@ -165,7 +165,7 @@ User Message
        │
        ▼
 ┌─────────────┐
-│  ChatOllama │  <- lfm2.5-thinking:latest
+│  ChatOllama │  <- qwen3:latest:latest
 │    (LLM)    │
 └──────┬──────┘
        │

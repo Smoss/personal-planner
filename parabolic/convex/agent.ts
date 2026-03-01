@@ -261,7 +261,7 @@ export async function* runAgentStream({
 }): AsyncGenerator<StreamEvent, void, unknown> {
   console.log("[runAgentStream] Starting with", messages.length, "messages");
   console.log("[runAgentStream] LLM config:", {
-    model: "lfm2.5-thinking:latest",
+    model: "qwen3:latest",
     baseUrl: process.env.OLLAMA_BASE_URL,
   });
 
@@ -274,7 +274,7 @@ export async function* runAgentStream({
 
   // Create LLM instance
   const llm = new ChatOllama({
-    model: "lfm2.5-thinking:latest",
+    model: "qwen3:latest",
     baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
     temperature: 0.7,
     streaming: true,

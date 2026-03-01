@@ -30,7 +30,7 @@ This is a new implementation of the AI Day Planner using **Convex** as the backe
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Ollama (Local)                          │
-│              lfm2.5-thinking:latest (chat)                     │
+│              qwen3:latest:latest (chat)                     │
 │              nomic-embed-text-v2-moe:latest (embeddings)       │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -48,7 +48,7 @@ This is a new implementation of the AI Day Planner using **Convex** as the backe
 1. **Node.js** 18+ and npm
 2. **Convex account** - Sign up at [convex.dev](https://convex.dev)
 3. **Ollama** running locally with:
-   - `lfm2.5-thinking:latest` model for chat
+   - `qwen3:latest:latest` model for chat
    - `nomic-embed-text-v2-moe:latest` model for embeddings
 
 ## Setup

@@ -3,10 +3,18 @@
 import { useState, useCallback, useRef } from "react";
 import type { ChatMessage, Suggestion } from "@/lib/convex";
 
+interface ToolCallState {
+  tool: string;
+  args: Record<string, unknown>;
+  result?: string;
+}
+
 interface UseChatReturn {
   messages: ChatMessage[];
   isStreaming: boolean;
   streamingContent: string;
+  thinkingContent: string;
+  activeToolCall: ToolCallState | null;
   currentSuggestions: Suggestion[];
   sendMessage: (content: string) => Promise<void>;
   clearChat: () => void;
@@ -25,6 +33,8 @@ export function useChat(): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [thinkingContent, setThinkingContent] = useState("");
+  const [activeToolCall, setActiveToolCall] = useState<ToolCallState | null>(null);
   const [currentSuggestions, setCurrentSuggestions] = useState<Suggestion[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -38,6 +48,8 @@ export function useChat(): UseChatReturn {
       setMessages(newMessages);
       setIsStreaming(true);
       setStreamingContent("");
+      setThinkingContent("");
+      setActiveToolCall(null);
 
       // Cancel any existing stream
       if (abortControllerRef.current) {
@@ -49,9 +61,9 @@ export function useChat(): UseChatReturn {
 
       try {
         // Call Convex HTTP action directly
-        const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.replace(/\/+$/, "") || "";
-        console.log("[useChat] Sending message to", `${convexUrl}/http/chat/streamChat`);
-        const response = await fetch(`${convexUrl}/http/chat/streamChat`, {
+        const siteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.replace(/\/+$/, "") || "";
+        console.log("[useChat] Sending message to", `${siteUrl}/chat/streamChat`);
+        const response = await fetch(`${siteUrl}/chat/streamChat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: newMessages }),
@@ -72,6 +84,7 @@ export function useChat(): UseChatReturn {
         let buffer = "";
         let fullResponse = "";
         const suggestions: Suggestion[] = [];
+        let pendingEventType: string | null = null;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -83,35 +96,48 @@ export function useChat(): UseChatReturn {
           buffer += decoder.decode(value, { stream: true });
           console.log("[useChat] Raw SSE chunk:", buffer);
 
-          // Process SSE events
+          // Process SSE events - buffer eventType across lines to handle chunk boundaries
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
 
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
+          for (const line of lines) {
             if (line.startsWith("event: ")) {
-              const eventType = line.slice(7);
-              const dataLine = lines[++i];
+              pendingEventType = line.slice(7);
+            } else if (line.startsWith("data: ") && pendingEventType) {
+              const data = line.slice(6);
+              console.log("[useChat] Parsed event:", pendingEventType, "data:", data.substring(0, 100));
 
-              if (dataLine?.startsWith("data: ")) {
-                const data = dataLine.slice(6);
-                console.log("[useChat] Parsed event:", eventType, "data:", data.substring(0, 100));
+              try {
+                const event: StreamEvent = JSON.parse(data);
 
-                try {
-                  const event: StreamEvent = JSON.parse(data);
-
-                  if (eventType === "response" && event.content) {
-                    fullResponse = event.content;
-                    setStreamingContent(fullResponse);
-                  } else if (eventType === "suggestion" && event.data) {
-                    suggestions.push(event.data);
-                    setCurrentSuggestions([...suggestions]);
-                  }
-                } catch {
-                  // Ignore parse errors
+                if (pendingEventType === "response" && event.content) {
+                  fullResponse = event.content;
+                  setStreamingContent(fullResponse);
+                  // Clear thinking/tool state once we have a response
+                  setThinkingContent("");
+                  setActiveToolCall(null);
+                } else if (pendingEventType === "suggestion" && event.data) {
+                  suggestions.push(event.data);
+                  setCurrentSuggestions([...suggestions]);
+                } else if (pendingEventType === "thinking" && event.content) {
+                  setThinkingContent(event.content);
+                  setActiveToolCall(null);
+                } else if (pendingEventType === "tool_call" && event.tool) {
+                  setActiveToolCall({ tool: event.tool, args: event.args || {} });
+                  setThinkingContent(`Using tool: ${event.tool}...`);
+                } else if (pendingEventType === "tool_result" && event.tool) {
+                  setActiveToolCall((prev) =>
+                    prev?.tool === event.tool ? { ...prev, result: event.result } : prev
+                  );
+                  setThinkingContent(`Tool ${event.tool} completed`);
                 }
+              } catch {
+                // Ignore parse errors
               }
+              pendingEventType = null;
+            } else if (line === "") {
+              // Empty line marks end of event, reset pending
+              pendingEventType = null;
             }
           }
         }
@@ -133,6 +159,8 @@ export function useChat(): UseChatReturn {
       } finally {
         setIsStreaming(false);
         setStreamingContent("");
+        setThinkingContent("");
+        setActiveToolCall(null);
         abortControllerRef.current = null;
       }
     },
@@ -145,6 +173,8 @@ export function useChat(): UseChatReturn {
     }
     setMessages([]);
     setStreamingContent("");
+    setThinkingContent("");
+    setActiveToolCall(null);
     setCurrentSuggestions([]);
     setIsStreaming(false);
   }, []);
@@ -153,6 +183,8 @@ export function useChat(): UseChatReturn {
     messages,
     isStreaming,
     streamingContent,
+    thinkingContent,
+    activeToolCall,
     currentSuggestions,
     sendMessage,
     clearChat,

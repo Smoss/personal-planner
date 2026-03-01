@@ -4,7 +4,7 @@ AI-powered day planning with semantic todo search. Built with FastAPI, LangChain
 
 ## Features
 
-- **AI Chat Assistant**: Conversational AI that helps you plan your day using Ollama's `lfm2.5-thinking:latest` model
+- **AI Chat Assistant**: Conversational AI that helps you plan your day using Ollama's `qwen3:latest` model
 - **Semantic Todo Search**: Find related todos using vector similarity search with PGVector
 - **Smart Suggestions**: AI suggests new todos that you can accept or reject
 - **Day Math Tool**: Calculate dates, time between events, and scheduling
@@ -36,7 +36,7 @@ Install and pull the required models:
 # Install Ollama from https://ollama.com
 
 # Pull required models
-ollama pull lfm2.5-thinking:latest
+ollama pull qwen3:latest
 ollama pull nomic-embed-text-v2-moe:latest
 ```
 
