@@ -15,6 +15,30 @@ export const getAll = query({
   },
 });
 
+// Query to get all todos, sorted by doBy date (tasks without doBy appear last)
+export const getAllByDoByDate = query({
+  args: {},
+  handler: async (ctx) => {
+    const todos = await ctx.db
+      .query("todos")
+      .take(100);
+
+    // Sort by doBy date: tasks with doBy come first (sorted chronologically),
+    // tasks without doBy come last
+    return todos.sort((a, b) => {
+      // If neither has doBy, maintain original order by createdAt
+      if (!a.doBy && !b.doBy) {
+        return b.createdAt - a.createdAt;
+      }
+      // Tasks without doBy go to the end
+      if (!a.doBy) return 1;
+      if (!b.doBy) return -1;
+      // Both have doBy, sort chronologically
+      return a.doBy.localeCompare(b.doBy);
+    });
+  },
+});
+
 // Query to get a single todo by ID
 export const getById = query({
   args: { id: v.id("todos") },
