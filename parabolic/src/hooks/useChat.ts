@@ -13,7 +13,7 @@ interface UseChatReturn {
   messages: ChatMessage[];
   isStreaming: boolean;
   streamingContent: string;
-  thinkingContent: string;
+  streamingThoughts: string;
   activeToolCall: ToolCallState | null;
   currentSuggestions: Suggestion[];
   sendMessage: (content: string) => Promise<void>;
@@ -33,7 +33,7 @@ export function useChat(): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
-  const [thinkingContent, setThinkingContent] = useState("");
+  const [streamingThoughts, setStreamingThoughts] = useState("");
   const [activeToolCall, setActiveToolCall] = useState<ToolCallState | null>(null);
   const [currentSuggestions, setCurrentSuggestions] = useState<Suggestion[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -48,7 +48,7 @@ export function useChat(): UseChatReturn {
       setMessages(newMessages);
       setIsStreaming(true);
       setStreamingContent("");
-      setThinkingContent("");
+      setStreamingThoughts("");
       setActiveToolCall(null);
 
       // Cancel any existing stream
@@ -83,6 +83,7 @@ export function useChat(): UseChatReturn {
         const decoder = new TextDecoder();
         let buffer = "";
         let fullResponse = "";
+        let accumulatedThoughts = "";
         const suggestions: Suggestion[] = [];
         let pendingEventType: string | null = null;
 
@@ -113,23 +114,26 @@ export function useChat(): UseChatReturn {
                 if (pendingEventType === "response" && event.content) {
                   fullResponse = event.content;
                   setStreamingContent(fullResponse);
-                  // Clear thinking/tool state once we have a response
-                  setThinkingContent("");
-                  setActiveToolCall(null);
                 } else if (pendingEventType === "suggestion" && event.data) {
                   suggestions.push(event.data);
                   setCurrentSuggestions([...suggestions]);
                 } else if (pendingEventType === "thinking" && event.content) {
-                  setThinkingContent(event.content);
+                  accumulatedThoughts += event.content + "\n";
+                  setStreamingThoughts(accumulatedThoughts);
                   setActiveToolCall(null);
                 } else if (pendingEventType === "tool_call" && event.tool) {
                   setActiveToolCall({ tool: event.tool, args: event.args || {} });
-                  setThinkingContent(`Using tool: ${event.tool}...`);
+                  accumulatedThoughts += `Using tool: ${event.tool}...\n`;
+                  setStreamingThoughts(accumulatedThoughts);
                 } else if (pendingEventType === "tool_result" && event.tool) {
-                  setActiveToolCall((prev) =>
-                    prev?.tool === event.tool ? { ...prev, result: event.result } : prev
-                  );
-                  setThinkingContent(`Tool ${event.tool} completed`);
+                  setActiveToolCall((prev) => {
+                    if (prev?.tool === event.tool && event.tool && prev) {
+                      return { tool: event.tool, args: prev.args, result: event.result };
+                    }
+                    return prev;
+                  });
+                  accumulatedThoughts += `Tool ${event.tool} completed: ${event.result?.substring(0, 100) || "Done"}\n`;
+                  setStreamingThoughts(accumulatedThoughts);
                 }
               } catch {
                 // Ignore parse errors
@@ -142,9 +146,12 @@ export function useChat(): UseChatReturn {
           }
         }
 
-        // Add assistant message
+        // Add assistant message with accumulated thoughts
         if (fullResponse) {
-          setMessages((prev) => [...prev, { role: "assistant", content: fullResponse }]);
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: fullResponse, thoughts: accumulatedThoughts.trim() || undefined },
+          ]);
         }
 
         setCurrentSuggestions(suggestions);
@@ -159,7 +166,7 @@ export function useChat(): UseChatReturn {
       } finally {
         setIsStreaming(false);
         setStreamingContent("");
-        setThinkingContent("");
+        setStreamingThoughts("");
         setActiveToolCall(null);
         abortControllerRef.current = null;
       }
@@ -173,7 +180,7 @@ export function useChat(): UseChatReturn {
     }
     setMessages([]);
     setStreamingContent("");
-    setThinkingContent("");
+    setStreamingThoughts("");
     setActiveToolCall(null);
     setCurrentSuggestions([]);
     setIsStreaming(false);
@@ -183,7 +190,7 @@ export function useChat(): UseChatReturn {
     messages,
     isStreaming,
     streamingContent,
-    thinkingContent,
+    streamingThoughts,
     activeToolCall,
     currentSuggestions,
     sendMessage,

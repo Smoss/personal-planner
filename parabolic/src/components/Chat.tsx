@@ -29,7 +29,7 @@ export function Chat() {
     messages,
     isStreaming,
     streamingContent,
-    thinkingContent,
+    streamingThoughts,
     activeToolCall,
     currentSuggestions,
     sendMessage,
@@ -145,33 +145,12 @@ export function Chat() {
                 </Box>
               )}
 
-              {/* Thinking indicator - shows during COT/tool execution */}
-              {isStreaming && (thinkingContent || !streamingContent) && (
-                <Box sx={{ my: 2, display: "flex", alignItems: "center", gap: 1 }}>
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      backgroundColor: "primary.main",
-                      animation: "pulse 1.5s ease-in-out infinite",
-                      "@keyframes pulse": {
-                        "0%, 100%": { opacity: 1, transform: "scale(1)" },
-                        "50%": { opacity: 0.5, transform: "scale(0.8)" },
-                      },
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    {thinkingContent || "Thinking..."}
-                  </Typography>
-                </Box>
-              )}
-
-              {/* Streaming message */}
+              {/* Streaming message with thoughts */}
               {isStreaming && streamingContent && (
                 <ChatMessage
                   message={{ role: "assistant", content: streamingContent }}
                   isStreaming
+                  streamingThoughts={streamingThoughts}
                 />
               )}
             </>

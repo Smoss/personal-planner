@@ -16,6 +16,7 @@ export type { Suggestion } from "../../convex/agent";
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
+  thoughts?: string;  // Store agent reasoning/thoughts
 }
 
 // Use Convex's generated types
