@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { GenericQueryCtx } from "convex/server";
+import { sortTodosByDoByDate } from "./lib/todoSort";
 
 // Query to get all todos, ordered by creation date
 export const getAll = query({
@@ -22,19 +23,7 @@ export const getAllByDoByDate = query({
       .query("todos")
       .take(100);
 
-    // Sort by doBy date: tasks with doBy come first (sorted chronologically),
-    // tasks without doBy come last
-    return todos.sort((a, b) => {
-      // If neither has doBy, maintain original order by createdAt
-      if (!a.doBy && !b.doBy) {
-        return b.createdAt - a.createdAt;
-      }
-      // Tasks without doBy go to the end
-      if (!a.doBy) return 1;
-      if (!b.doBy) return -1;
-      // Both have doBy, sort chronologically
-      return a.doBy.localeCompare(b.doBy);
-    });
+    return todos.sort(sortTodosByDoByDate);
   },
 });
 

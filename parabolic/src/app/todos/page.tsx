@@ -35,32 +35,36 @@ export default function TodosPage() {
   const handleToggle = async (id: string, completed: boolean) => {
     try {
       await toggleTodo({ id: id as Id<"todos"> });
-    } catch {
-      setError("Failed to update todo");
+    } catch (err) {
+      console.error("Failed to toggle todo:", err);
+      setError(`Failed to update todo: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await removeTodo({ id: id as Id<"todos"> });
-    } catch {
-      setError("Failed to delete todo");
+    } catch (err) {
+      console.error("Failed to delete todo:", err);
+      setError(`Failed to delete todo: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
   const handleCreate = async (todo: TodoCreate) => {
     try {
       await createTodo(todo);
-    } catch {
-      setError("Failed to create todo");
+    } catch (err) {
+      console.error("Failed to create todo:", err);
+      setError(`Failed to create todo: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
   const handleUpdate = async (id: string, todo: TodoUpdate) => {
     try {
       await updateTodo({ id: id as Id<"todos">, ...todo });
-    } catch {
-      setError("Failed to update todo");
+    } catch (err) {
+      console.error("Failed to update todo:", err);
+      setError(`Failed to update todo: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 

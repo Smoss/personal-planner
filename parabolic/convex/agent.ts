@@ -2,7 +2,8 @@ import { tool } from "@langchain/core/tools";
 import { ChatOllama } from "@langchain/ollama";
 import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
 import { z } from "zod";
-import { format, addDays, subDays, differenceInDays, getDay, getWeek, endOfMonth } from "date-fns";
+import { format, differenceInDays, getWeek, endOfMonth } from "date-fns";
+import { performDayMath } from "./lib/datemath";
 import type { ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 
@@ -34,7 +35,7 @@ export interface StreamEvent {
 /**
  * Generate current date context for the agent
  */
-function getDateContext(): string {
+export function getDateContext(): string {
   const now = new Date();
   const daysUntilMonthEnd = differenceInDays(endOfMonth(now), now);
 
@@ -120,42 +121,7 @@ function createTools(ctx: ActionCtx, state: AgentState) {
       days?: number;
     }) => {
       console.log("[Tool:day_math] Operation:", operation, "date:", date, "days:", days);
-      const today = new Date();
-
-      switch (operation) {
-        case "add_days": {
-          const start = date ? new Date(date) : today;
-          const result = addDays(start, days || 0);
-          return `${format(result, "yyyy-MM-dd")} (${format(result, "EEEE")})`;
-        }
-        case "subtract_days": {
-          const start = date ? new Date(date) : today;
-          const result = subDays(start, days || 0);
-          return `${format(result, "yyyy-MM-dd")} (${format(result, "EEEE")})`;
-        }
-        case "days_between": {
-          if (!date) return "Error: start date required";
-          const start = new Date(date);
-          const diff = differenceInDays(today, start);
-          return `${Math.abs(diff)} days ${diff > 0 ? "since" : "until"}`;
-        }
-        case "day_of_week": {
-          const targetDate = date ? new Date(date) : today;
-          const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-          return days[getDay(targetDate)];
-        }
-        case "week_of_year": {
-          const targetDate = date ? new Date(date) : today;
-          return String(getWeek(targetDate));
-        }
-        case "days_until_month_end": {
-          const current = date ? new Date(date) : today;
-          const daysRemaining = differenceInDays(endOfMonth(current), current);
-          return String(daysRemaining);
-        }
-        default:
-          return `Unknown operation: ${operation}`;
-      }
+      return performDayMath(operation, date, days);
     },
     {
       name: "day_math",
@@ -227,7 +193,7 @@ User can accept or reject each suggestion. Before making another suggestion, ask
 /**
  * Convert message format to LangChain messages
  */
-function convertToLangChainMessages(
+export function convertToLangChainMessages(
   messages: Array<{ role: "user" | "assistant" | "system"; content: string }>
 ): (HumanMessage | AIMessage | SystemMessage)[] {
   const lcMessages: (HumanMessage | AIMessage | SystemMessage)[] = [];
@@ -263,7 +229,12 @@ async function executeTool(
     const result = await (toolInstance as any).invoke(args);
     return String(result);
   } catch (error) {
-    return `Error executing tool ${toolName}: ${error}`;
+    console.error(`[executeTool] Tool "${toolName}" failed:`, {
+      toolName,
+      args,
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
+    return `Error executing tool ${toolName}: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 

@@ -30,24 +30,17 @@ export function SuggestionCard({ suggestion, onAccepted, onRejected }: Suggestio
       await acceptSuggestionMutation({ suggestion });
       setStatus("accepted");
       onAccepted?.();
-    } catch {
-      setError("Failed to accept suggestion");
+    } catch (err) {
+      console.error("Failed to accept suggestion:", err);
+      setError(`Failed to add task: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleReject = async () => {
-    setLoading(true);
-    try {
-      // Just update local state - the suggestion is ephemeral
-      setStatus("rejected");
-      onRejected?.();
-    } catch {
-      setError("Failed to reject suggestion");
-    } finally {
-      setLoading(false);
-    }
+  const handleReject = () => {
+    setStatus("rejected");
+    onRejected?.();
   };
 
   if (status !== "pending") {
