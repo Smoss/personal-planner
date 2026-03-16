@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { ChatMessage, Suggestion } from "@/lib/convex";
+import { parseSSELines } from "@/lib/parseSSE";
 
 interface ToolCallState {
   tool: string;
@@ -101,48 +102,35 @@ export function useChat(): UseChatReturn {
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
 
-          for (const line of lines) {
-            if (line.startsWith("event: ")) {
-              pendingEventType = line.slice(7);
-            } else if (line.startsWith("data: ") && pendingEventType) {
-              const data = line.slice(6);
-              console.log("[useChat] Parsed event:", pendingEventType, "data:", data.substring(0, 100));
+          const { events: parsedEvents, pendingEventType: newPendingType } = parseSSELines(lines, pendingEventType);
+          pendingEventType = newPendingType;
 
-              try {
-                const event: StreamEvent = JSON.parse(data);
+          for (const { eventType, event } of parsedEvents) {
+            console.log("[useChat] Parsed event:", eventType, "data:", JSON.stringify(event).substring(0, 100));
 
-                if (pendingEventType === "response" && event.content) {
-                  // Append incremental content (chunks) rather than replacing
-                  fullResponse += event.content;
-                  setStreamingContent(fullResponse);
-                } else if (pendingEventType === "suggestion" && event.data) {
-                  suggestions.push(event.data);
-                  setCurrentSuggestions([...suggestions]);
-                } else if (pendingEventType === "thinking" && event.content) {
-                  accumulatedThoughts += event.content + "\n";
-                  setStreamingThoughts(accumulatedThoughts);
-                  setActiveToolCall(null);
-                } else if (pendingEventType === "tool_call" && event.tool) {
-                  setActiveToolCall({ tool: event.tool, args: event.args || {} });
-                  accumulatedThoughts += `Using tool: ${event.tool}...\n`;
-                  setStreamingThoughts(accumulatedThoughts);
-                } else if (pendingEventType === "tool_result" && event.tool) {
-                  setActiveToolCall((prev) => {
-                    if (prev?.tool === event.tool && event.tool && prev) {
-                      return { tool: event.tool, args: prev.args, result: event.result };
-                    }
-                    return prev;
-                  });
-                  accumulatedThoughts += `Tool ${event.tool} completed: ${event.result?.substring(0, 100) || "Done"}\n`;
-                  setStreamingThoughts(accumulatedThoughts);
+            if (eventType === "response" && event.content) {
+              fullResponse += event.content;
+              setStreamingContent(fullResponse);
+            } else if (eventType === "suggestion" && event.data) {
+              suggestions.push(event.data as Suggestion);
+              setCurrentSuggestions([...suggestions]);
+            } else if (eventType === "thinking" && event.content) {
+              accumulatedThoughts += event.content + "\n";
+              setStreamingThoughts(accumulatedThoughts);
+              setActiveToolCall(null);
+            } else if (eventType === "tool_call" && event.tool) {
+              setActiveToolCall({ tool: event.tool, args: event.args || {} });
+              accumulatedThoughts += `Using tool: ${event.tool}...\n`;
+              setStreamingThoughts(accumulatedThoughts);
+            } else if (eventType === "tool_result" && event.tool) {
+              setActiveToolCall((prev) => {
+                if (prev?.tool === event.tool && event.tool && prev) {
+                  return { tool: event.tool, args: prev.args, result: event.result };
                 }
-              } catch {
-                // Ignore parse errors
-              }
-              pendingEventType = null;
-            } else if (line === "") {
-              // Empty line marks end of event, reset pending
-              pendingEventType = null;
+                return prev;
+              });
+              accumulatedThoughts += `Tool ${event.tool} completed: ${event.result?.substring(0, 100) || "Done"}\n`;
+              setStreamingThoughts(accumulatedThoughts);
             }
           }
         }
@@ -159,9 +147,10 @@ export function useChat(): UseChatReturn {
       } catch (error) {
         if (error instanceof Error && error.name !== "AbortError") {
           console.error("Chat error:", error);
+          const errorDetail = error instanceof Error ? error.message : "Unknown error";
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: "Sorry, there was an error processing your message." },
+            { role: "assistant", content: `Sorry, there was an error: ${errorDetail}` },
           ]);
         }
       } finally {

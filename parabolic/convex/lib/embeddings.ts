@@ -8,21 +8,31 @@ const EMBEDDING_DIMENSIONS = 768;
  * Uses Ollama's nomic-embed-text-v2-moe model (768 dimensions)
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
+  const embedding = await generateOllamaEmbedding(text, DEFAULT_EMBEDDING_MODEL);
+
+  // Validate dimensions
+  if (embedding.length !== EMBEDDING_DIMENSIONS) {
+    console.warn(
+      `Unexpected embedding dimensions: ${embedding.length}, expected ${EMBEDDING_DIMENSIONS}`
+    );
+  }
+
+  return embedding;
+}
+
+/**
+ * Generate an embedding with graceful degradation.
+ * Returns a zero vector and `degraded: true` if generation fails.
+ */
+export async function generateEmbeddingWithFallback(
+  text: string
+): Promise<{ embedding: number[]; degraded: boolean }> {
   try {
-    const embedding = await generateOllamaEmbedding(text, DEFAULT_EMBEDDING_MODEL);
-
-    // Validate dimensions
-    if (embedding.length !== EMBEDDING_DIMENSIONS) {
-      console.warn(
-        `Unexpected embedding dimensions: ${embedding.length}, expected ${EMBEDDING_DIMENSIONS}`
-      );
-    }
-
-    return embedding;
+    const embedding = await generateEmbedding(text);
+    return { embedding, degraded: false };
   } catch (error) {
-    console.error("Failed to generate embedding:", error);
-    // Return zero vector as fallback (will allow storage but poor search results)
-    return new Array(EMBEDDING_DIMENSIONS).fill(0);
+    console.error("Embedding generation failed, using zero vector:", error);
+    return { embedding: new Array(EMBEDDING_DIMENSIONS).fill(0), degraded: true };
   }
 }
 
